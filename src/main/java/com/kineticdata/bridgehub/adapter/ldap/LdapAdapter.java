@@ -28,6 +28,7 @@ import java.util.regex.Matcher;
 
 import com.kineticdata.commons.v1.config.ConfigurableProperty;
 import com.kineticdata.commons.v1.config.ConfigurablePropertyMap;
+import java.io.IOException;
 import org.slf4j.LoggerFactory;
 
 /**
@@ -44,7 +45,7 @@ public class LdapAdapter implements BridgeAdapter {
     
     @Override
     public String getVersion() {
-       return  "1.0.0";
+       return VERSION;
     }
     
     @Override
@@ -111,6 +112,20 @@ public class LdapAdapter implements BridgeAdapter {
     /** Defines the logger */
     protected static final org.slf4j.Logger logger = LoggerFactory.getLogger(LdapAdapter.class);
     
+    /** Adapter version constant. */
+    public static String VERSION;
+    /** Load the properties version from the version.properties file. */
+    static {
+        try {
+            java.util.Properties properties = new java.util.Properties();
+            properties.load(LdapAdapter.class.getResourceAsStream("/"+LdapAdapter.class.getName()+".version"));
+            VERSION = properties.getProperty("version");
+        } catch (IOException e) {
+            logger.warn("Unable to load "+LdapAdapter.class.getName()+" version properties.", e);
+            VERSION = "Unknown";
+        }
+    }
+    
     /** Defines the collection of property names for the adapter. */
     public static class Properties {
         // Define the date formats
@@ -138,15 +153,15 @@ public class LdapAdapter implements BridgeAdapter {
      * displayed as configurable values within the AdminConsole.
      */
     private final ConfigurablePropertyMap properties = new ConfigurablePropertyMap(
-        new ConfigurableProperty(Properties.PROPERTY_SERVER),
-        new ConfigurableProperty(Properties.PROPERTY_PORT),
-        new ConfigurableProperty(Properties.PROPERTY_SSL),
-        new ConfigurableProperty(Properties.PROPERTY_SECURITY_ANONYMOUS),
-        new ConfigurableProperty(Properties.PROPERTY_SECURITY_PRINCIPAL),
-        new ConfigurableProperty(Properties.PROPERTY_SECURITY_CREDENTIALS),
-        new ConfigurableProperty(Properties.PROPERTY_SEARCH_BASE),
-        new ConfigurableProperty(Properties.PROPERTY_PAGE_SIZE),
-        new ConfigurableProperty(Properties.PROPERTY_MAXIMUM_PAGES)
+        new ConfigurableProperty(Properties.PROPERTY_SERVER).setValue("127.0.0.1"),
+        new ConfigurableProperty(Properties.PROPERTY_PORT).setValue("389"),
+        new ConfigurableProperty(Properties.PROPERTY_SSL).addPossibleValues("Yes","No").setValue("No"),
+        new ConfigurableProperty(Properties.PROPERTY_SECURITY_ANONYMOUS).addPossibleValues("Yes","No").setValue("No"),
+        new ConfigurableProperty(Properties.PROPERTY_SECURITY_PRINCIPAL).setValue("CN=USERNAME,CN=USERS,DC=DOMAIN,DC=com"),
+        new ConfigurableProperty(Properties.PROPERTY_SECURITY_CREDENTIALS).setIsSensitive(true),
+        new ConfigurableProperty(Properties.PROPERTY_SEARCH_BASE).setValue("DC=DOMAIN,DC=com"),
+        new ConfigurableProperty(Properties.PROPERTY_PAGE_SIZE).setValue("50"),
+        new ConfigurableProperty(Properties.PROPERTY_MAXIMUM_PAGES).setValue("20")
     );
 
     // Define the constants that are helpful
@@ -170,12 +185,6 @@ public class LdapAdapter implements BridgeAdapter {
      */
     @Override
     public Count count(BridgeRequest request) throws BridgeError {
-        
-        // Log the access
-        logger.debug("Counting Ldap Records:");
-        logger.debug("  Structure: " + request.getStructure());
-        logger.debug("  Query: " + request.getQuery());
-
         // Build the context
         LdapContext context = buildContext(environment);
         // Build the query filter
@@ -226,13 +235,6 @@ public class LdapAdapter implements BridgeAdapter {
      */
     @Override
     public Record retrieve(BridgeRequest request) throws BridgeError {
-        
-        // Log the access
-        logger.debug("Retrieving Ldap Records:");
-        logger.debug("  Structure: " + request.getStructure());
-        logger.debug("  Query: " + request.getQuery());
-        logger.debug("  Fields: " + request.getFieldString());
-
         // Build the context
         LdapContext context = buildContext(environment);
         // Build the query filter
@@ -306,13 +308,6 @@ public class LdapAdapter implements BridgeAdapter {
 
     @Override
     public RecordList search(BridgeRequest request) throws BridgeError {
-        
-        // Log the access
-        logger.debug("Searching Ldap Records:");
-        logger.debug("  Structure: " + request.getStructure());
-        logger.debug("  Query: " + request.getQuery());
-        logger.debug("  Fields: " + request.getFieldString());
-
         // Build the context
         InitialLdapContext context = buildContext(environment);
         // Build the query filter
