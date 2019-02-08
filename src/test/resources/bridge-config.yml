@@ -9,6 +9,7 @@ Bridge Configuration:
     Anonymous Authentication: "No"
     Security Credentials: ""
     Search Base: "CN=Users,DC=kineticdata,DC=com"
+    Use Pagination: "No"
     Page Size: "5"
     Maximun Pages: "10"
 
