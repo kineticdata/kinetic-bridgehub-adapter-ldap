@@ -64,23 +64,33 @@ public class LdapAdapter implements BridgeAdapter {
         // Add the default environment configuation values
         environment.put(Context.INITIAL_CONTEXT_FACTORY, Properties.ENVIRONMENT_INITIAL_CONTEXT_FACTORY);
         environment.put(Context.REFERRAL, Properties.ENVIRONMENT_REFERRAL);
-        environment.put(Context.SECURITY_AUTHENTICATION, configuration.getValue(Properties.PROPERTY_SECURITY_ANONYMOUS).equalsIgnoreCase("no") ? "simple" : "none");
+        environment.put(Context.SECURITY_AUTHENTICATION, configuration
+            .getValue(Properties.PROPERTY_SECURITY_ANONYMOUS)
+            .equalsIgnoreCase("no") ? "simple" : "none");
         // Configure the environment hashtable (this is used to create the
         // LdapContext object responsible for interacting with the server).
         environment.put(Context.PROVIDER_URL, (configuration.getValue(Properties.PROPERTY_SSL).equalsIgnoreCase("no") ? "ldap://" : "ldaps://") +
             configuration.getValue(Properties.PROPERTY_SERVER)+":"+configuration.getValue(Properties.PROPERTY_PORT));
         environment.put(Context.SECURITY_PRINCIPAL, configuration.getValue(Properties.PROPERTY_SECURITY_PRINCIPAL));
         environment.put(Context.SECURITY_CREDENTIALS, configuration.getValue(Properties.PROPERTY_SECURITY_CREDENTIALS));
+        //
         // Set the search base
         this.searchBase = configuration.getValue(Properties.PROPERTY_SEARCH_BASE);
-
-        this.maximumPages = Integer.valueOf(configuration.getValue(Properties.PROPERTY_MAXIMUM_PAGES));
-        this.pageSize = Integer.valueOf(configuration.getValue(Properties.PROPERTY_PAGE_SIZE));
-        this.usePagination = configuration.getValue(Properties.PROPERTY_PAGINATION).equalsIgnoreCase("no") ? false : true;
+        
+        this.usePagination = configuration.getValue(Properties.PROPERTY_PAGINATION)
+            .equalsIgnoreCase("no") ? false : true;
+        
+        if (this.usePagination) {
+            this.maximumPages = Integer.valueOf(configuration
+                .getValue(Properties.PROPERTY_MAXIMUM_PAGES));
+            this.pageSize = Integer.valueOf(configuration
+                .getValue(Properties.PROPERTY_PAGE_SIZE));
+        }
         
         // If the username or password are blank and the anonymous authentication is set to 'no', throw an error
         if (
-            configuration.getValue(Properties.PROPERTY_SECURITY_ANONYMOUS).equalsIgnoreCase("no") && 
+            configuration.getValue(Properties.PROPERTY_SECURITY_ANONYMOUS)
+                .equalsIgnoreCase("no") && 
                 (
                 StringUtils.isBlank(configuration.getValue(Properties.PROPERTY_SECURITY_PRINCIPAL)) ||
                 StringUtils.isBlank(configuration.getValue(Properties.PROPERTY_SECURITY_CREDENTIALS))
@@ -162,8 +172,10 @@ public class LdapAdapter implements BridgeAdapter {
         new ConfigurableProperty(Properties.PROPERTY_SECURITY_PRINCIPAL).setValue("CN=USERNAME,CN=USERS,DC=DOMAIN,DC=com"),
         new ConfigurableProperty(Properties.PROPERTY_SECURITY_CREDENTIALS).setIsSensitive(true),
         new ConfigurableProperty(Properties.PROPERTY_SEARCH_BASE).setValue("DC=DOMAIN,DC=com"),
-        new ConfigurableProperty(Properties.PROPERTY_PAGE_SIZE).setValue("50"),
-        new ConfigurableProperty(Properties.PROPERTY_MAXIMUM_PAGES).setValue("20"),
+        new ConfigurableProperty(Properties.PROPERTY_PAGE_SIZE).setValue("50")
+            .setDependency(Properties.PROPERTY_PAGINATION, "Yes").setIsRequired(true),
+        new ConfigurableProperty(Properties.PROPERTY_MAXIMUM_PAGES).setValue("20")
+            .setDependency(Properties.PROPERTY_PAGINATION, "Yes").setIsRequired(true),
         new ConfigurableProperty(Properties.PROPERTY_PAGINATION).addPossibleValues("Yes","No").setValue("Yes")
     );
 
@@ -359,7 +371,6 @@ public class LdapAdapter implements BridgeAdapter {
                 // Set up the page size
                 context.setRequestControls(new Control[]{new PagedResultsControl(pageSize, Control.CRITICAL) });
 
-
                 while (page == 0 || (page < maximumPages && cookie != null)) {
                     // Retrieve the search results
                     NamingEnumeration<SearchResult> searchResults;
@@ -393,6 +404,10 @@ public class LdapAdapter implements BridgeAdapter {
                     // Re-activate paged results
                     context.setRequestControls(new Control[]{new PagedResultsControl(pageSize, cookie, Control.CRITICAL) });
                 }
+                
+                if (records.size() == page * pageSize) {
+                    metadata.put("limitReached", "true");
+                }
             } else {
                 // Retrieve the search results
                 NamingEnumeration<SearchResult> searchResults;
@@ -413,9 +428,6 @@ public class LdapAdapter implements BridgeAdapter {
             Collections.sort(records, new RecordComparator(fields));
             
             metadata.put("size", String.valueOf(records.size()));
-            if (records.size() == page*pageSize) {
-                metadata.put("limitReached", "true");
-            }
 
         } catch (java.io.IOException e) {
             throw new BridgeError("There was a problem searching LDAP: "+e.getMessage(),e);
@@ -732,8 +744,8 @@ public class LdapAdapter implements BridgeAdapter {
         public int compare( Record record1, Record record2) {
             int comparison = 0;
             for(String field : fields) {
-                String value1 = record1.getValue(field).toString();
-                String value2 = record2.getValue(field).toString();
+                String value1 = String.valueOf(record1.getValue(field));
+                String value2 = String.valueOf(record2.getValue(field));
                 // If both records are null, continue with the comparison
                 if (value1 == null && value2 == null) {continue;}
                 // If only value1 is null, return a negative number (indicating
